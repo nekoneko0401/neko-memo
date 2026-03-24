@@ -15,7 +15,6 @@
         .memo-item { background: #fff; border-left: 5px solid #ff8c00; padding: 10px; margin-bottom: 10px; border-radius: 5px; box-shadow: 0 2px 4px rgba(0,0,0,0.05); position: relative; }
         .memo-date { font-size: 10px; color: #999; }
         .delete-btn { position: absolute; right: 10px; top: 10px; cursor: pointer; color: #ccc; font-size: 12px; }
-        .delete-btn:hover { color: #ff4500; }
     </style>
 </head>
 <body>
@@ -31,7 +30,6 @@
     import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
     import { getDatabase, ref, push, onValue, remove, serverTimestamp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-database.js";
 
-    // ★★★ ここにご自分の firebaseConfig を貼り付けてください ★★★
     const firebaseConfig = {
         apiKey: "AIzaSyAOlqtNEaxEZ5PhX6p7yPJhv-EeIJxzk1Q",
         authDomain: "neko-memo.firebaseapp.com",
@@ -49,31 +47,49 @@
     const saveBtn = document.getElementById('saveBtn');
     const memoList = document.getElementById('memoList');
 
-    // --- 音声ファイルの設定 ---
-    // 保存：可愛い鳴き声
-    const meowSound = new Audio('https://orangefreesounds.com/wp-content/uploads/2014/10/Cat-meow-sound.mp3');
-    // 削除：フシャー！（威嚇）
-    const hissSound = new Audio('https://orangefreesounds.com/wp-content/uploads/2014/05/Cat-hiss-sound.mp3');
+    // --- ブラウザの機能で「ピコーン」と音を作る関数 ---
+    const playSystemSound = (type) => {
+        const ctx = new (window.AudioContext || window.webkitAudioContext)();
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
 
-    // 保存ボタンを押したとき
+        osc.connect(gain);
+        gain.connect(ctx.destination);
+
+        if (type === 'save') {
+            // 保存：高い音で「ピコーン」
+            osc.type = 'sine';
+            osc.frequency.setValueAtTime(880, ctx.currentTime);
+            osc.frequency.exponentialRampToValueAtTime(440, ctx.currentTime + 0.2);
+        } else {
+            // 削除：低い音で「ブー」
+            osc.type = 'sawtooth';
+            osc.frequency.setValueAtTime(220, ctx.currentTime);
+            osc.frequency.exponentialRampToValueAtTime(110, ctx.currentTime + 0.3);
+        }
+
+        gain.gain.setValueAtTime(0.1, ctx.currentTime);
+        gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.3);
+
+        osc.start();
+        osc.stop(ctx.currentTime + 0.3);
+    };
+
+    // 保存ボタン
     saveBtn.addEventListener('click', () => {
         const text = memoArea.value.trim();
         if (text === "") return;
 
-        // 音を鳴らす（再生位置をリセットしてから再生）
-        meowSound.currentTime = 0;
-        meowSound.play().catch(e => console.log("再生ブロック回避:", e));
+        playSystemSound('save'); // 音を鳴らす
 
-        // クラウドに「追加」する
         push(listRef, {
             text: text,
             timestamp: serverTimestamp()
         });
-        
         memoArea.value = ""; 
     });
 
-    // データの読み込みと表示
+    // 読み込み表示
     onValue(listRef, (snapshot) => {
         memoList.innerHTML = "";
         const data = snapshot.val();
@@ -81,7 +97,6 @@
             Object.keys(data).reverse().forEach(key => {
                 const memo = data[key];
                 const date = memo.timestamp ? new Date(memo.timestamp).toLocaleString() : "";
-                
                 const div = document.createElement('div');
                 div.className = 'memo-item';
                 div.innerHTML = `
@@ -96,11 +111,8 @@
 
     // 削除機能
     window.deleteMemo = (key) => {
-        if (confirm("このメモを削除するニャ？（フシャーッ！って言われるかもよ）")) {
-            // 削除音を鳴らす
-            hissSound.currentTime = 0;
-            hissSound.play().catch(e => console.log("再生ブロック回避:", e));
-            
+        if (confirm("このメモを削除するニャ？")) {
+            playSystemSound('delete'); // 音を鳴らす
             remove(ref(db, `memo-list/${key}`));
         }
     };
