@@ -1,0 +1,27 @@
+// https://nekoneko0401.github.io/neko-memo/
+
+
+// Import the functions you need from the SDKs you need
+import { initializeApp } from "firebase/app";
+// TODO: Add SDKs for Firebase products that you want to use
+// https://firebase.google.com/docs/web/setup#available-libraries
+
+
+
+
+// Your web app's Firebase configuration
+
+const firebaseConfig = {
+  apiKey: "AIzaSyAOlqtNEaxEZ5PhX6p7yPJhv-EeIJxzk1Q",
+  authDomain: "neko-memo.firebaseapp.com",
+  projectId: "neko-memo",
+  storageBucket: "neko-memo.firebasestorage.app",
+  messagingSenderId: "267727124933",
+  appId: "1:267727124933:web:74c8e7a4f968b7822f73ac"
+};
+
+
+
+
+// Initialize Firebase
+const app = initializeApp(firebaseConfig);

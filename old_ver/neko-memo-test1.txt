@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ねこメモ共有</title>
+    <style>
+        body { font-family: sans-serif; background-color: #f0f0f0; padding: 20px; }
+        .container { max-width: 500px; margin: 0 auto; background: white; padding: 20px; border-radius: 15px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); }
+        h2 { color: #ff8c00; text-align: center; }
+        textarea { width: 100%; height: 200px; border: 2px solid #ddd; border-radius: 10px; padding: 10px; box-sizing: border-box; font-size: 16px; margin-bottom: 10px; }
+        .status { text-align: right; font-size: 12px; color: #888; }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <h2>🐾 ねこメモ共有</h2>
+    <textarea id="memoArea" placeholder="ここに書くと自動で共有されます..."></textarea>
+    <div class="status" id="status">クラウド同期中...</div>
+</div>
+
+<script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
+    import { getDatabase, ref, set, onValue } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-database.js";
+
+    // ★★★ ここに自分の firebaseConfig を貼り付けてください ★★★
+    const firebaseConfig = {
+        apiKey: "AIzaSyAOlqtNEaxEZ5PhX6p7yPJhv-EeIJxzk1Q",
+        authDomain: "neko-memo.firebaseapp.com",
+        projectId: "neko-memo",
+        storageBucket: "neko-memo.firebasestorage.app",
+        messagingSenderId: "267727124933",
+        appId: "1:267727124933:web:74c8e7a4f968b7822f73ac"
+    };
+
+    // Firebaseを起動
+    const app = initializeApp(firebaseConfig);
+    const db = getDatabase(app);
+    const memoRef = ref(db, 'shared-memo');
+
+    const memoArea = document.getElementById('memoArea');
+    const status = document.getElementById('status');
+
+    // クラウドからデータが届いたら表示を更新
+    onValue(memoRef, (snapshot) => {
+        const data = snapshot.val();
+        if (data !== null && document.activeElement !== memoArea) {
+            memoArea.value = data;
+        }
+        status.innerText = "同期済み 🐾";
+    });
+
+    // 文字を打つたびにクラウドへ保存
+    memoArea.addEventListener('input', (e) => {
+        const text = e.target.value;
+        set(memoRef, text);
+        status.innerText = "保存中...";
+    });
+</script>
+
+</body>
+</html>

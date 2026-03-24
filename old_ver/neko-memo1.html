@@ -1,0 +1,206 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ねこねこメモ 🐾</title>
+    <style>
+        :root {
+            --bg-color: #fdf5e6; /* 温かみのあるベージュ */
+            --card-color: #ffffff;
+            --accent-color: #ffb366; /* 猫っぽいオレンジ */
+            --text-color: #5d4037;
+            --paw-color: #ef9a9a;
+        }
+
+        body {
+            font-family: "Hiragino Sans", "Meiryo", sans-serif;
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            margin: 0;
+            display: flex;
+            justify-content: center;
+            padding: 20px;
+        }
+
+        .container {
+            width: 100%;
+            max-width: 400px;
+        }
+
+        h1 {
+            text-align: center;
+            font-size: 1.5rem;
+            margin-bottom: 20px;
+        }
+
+        /* 入力エリア */
+        .input-area {
+            background: var(--card-color);
+            padding: 15px;
+            border-radius: 20px;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.05);
+            margin-bottom: 20px;
+        }
+
+        textarea {
+            width: 100%;
+            height: 80px;
+            border: 2px solid #eee;
+            border-radius: 12px;
+            padding: 10px;
+            box-sizing: border-box;
+            font-size: 1rem;
+            resize: none;
+            outline: none;
+        }
+
+        .add-btn {
+            width: 100%;
+            background-color: var(--accent-color);
+            color: white;
+            border: none;
+            padding: 12px;
+            border-radius: 12px;
+            font-size: 1rem;
+            font-weight: bold;
+            margin-top: 10px;
+            cursor: pointer;
+            transition: 0.2s;
+        }
+        .add-btn:active { transform: scale(0.98); }
+
+        /* メモ一覧エリア */
+        .memo-list {
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+        }
+
+        .memo-item {
+            background: var(--card-color);
+            padding: 15px;
+            border-radius: 15px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+            position: relative;
+            animation: slideIn 0.3s ease-out;
+        }
+
+        @keyframes slideIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .memo-text {
+            white-space: pre-wrap;
+            margin-bottom: 25px;
+            line-height: 1.5;
+        }
+
+        .memo-footer {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            font-size: 0.75rem;
+            color: #999;
+        }
+
+        .delete-btn {
+            background: none;
+            border: none;
+            color: var(--paw-color);
+            cursor: pointer;
+            font-size: 1.2rem;
+            padding: 5px;
+        }
+
+        .cat-mark {
+            position: absolute;
+            top: -10px;
+            right: 10px;
+            font-size: 1.2rem;
+        }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <h1>(ΦωΦ) ねこねこメモ 🐾</h1>
+    
+    <div class="input-area">
+        <textarea id="memoInput" placeholder="なにかメモするニャ？"></textarea>
+        <button class="add-btn" onclick="addMemo()">メモを追加する 🐾</button>
+    </div>
+
+    <div id="memoList" class="memo-list">
+        </div>
+</div>
+
+<script>
+    // ページ読み込み時に保存されたメモを表示
+    window.onload = loadMemos;
+
+    function addMemo() {
+        const input = document.getElementById('memoInput');
+        const text = input.value.trim();
+        
+        if (!text) return;
+
+        const now = new Date();
+        const timeStr = `${now.getMonth() + 1}/${now.getDate()} ${now.getHours()}:${now.getMinutes().toString().padStart(2, '0')}`;
+
+        const memo = {
+            id: Date.now(),
+            text: text,
+            time: timeStr
+        };
+
+        saveMemo(memo);
+        input.value = '';
+        loadMemos();
+    }
+
+    function saveMemo(memo) {
+        const memos = JSON.parse(localStorage.getItem('nekoMemos') || '[]');
+        memos.unshift(memo); // 新しい順に保存
+        localStorage.setItem('nekoMemos', JSON.stringify(memos));
+    }
+
+    function loadMemos() {
+        const memoList = document.getElementById('memoList');
+        const memos = JSON.parse(localStorage.getItem('nekoMemos') || '[]');
+        
+        memoList.innerHTML = '';
+        
+        memos.forEach(memo => {
+            const div = document.createElement('div');
+            div.className = 'memo-item';
+            div.innerHTML = `
+                <div class="cat-mark">🐾</div>
+                <div class="memo-text">${escapeHTML(memo.text)}</div>
+                <div class="memo-footer">
+                    <span>${memo.time}</span>
+                    <button class="delete-btn" onclick="deleteMemo(${memo.id})">🗑️</button>
+                </div>
+            `;
+            memoList.appendChild(div);
+        });
+    }
+
+    function deleteMemo(id) {
+        let memos = JSON.parse(localStorage.getItem('nekoMemos') || '[]');
+        memos = memos.filter(m => m.id !== id);
+        localStorage.setItem('nekoMemos', JSON.stringify(memos));
+        loadMemos();
+    }
+
+    // セキュリティ対策（HTMLタグを無効化）
+    function escapeHTML(str) {
+        return str.replace(/[&<>"']/g, function(m) {
+            return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[m];
+        });
+    }
+</script>
+
+</body>
+</html>
