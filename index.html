@@ -11,24 +11,35 @@
         textarea { width: 100%; height: 100px; border: 2px solid #ddd; border-radius: 10px; padding: 10px; box-sizing: border-box; font-size: 16px; }
         button { width: 100%; background: #ff8c00; color: white; border: none; padding: 12px; border-radius: 10px; font-size: 18px; cursor: pointer; margin: 10px 0; }
         button:active { background: #e67e00; }
+        /* ログインボタン専用スタイル */
+        #loginBtn { background: #4285F4; margin-bottom: 20px; } 
         .memo-list { margin-top: 20px; }
         .memo-item { background: #fff; border-left: 5px solid #ff8c00; padding: 10px; margin-bottom: 10px; border-radius: 5px; box-shadow: 0 2px 4px rgba(0,0,0,0.05); position: relative; }
         .memo-date { font-size: 10px; color: #999; }
         .delete-btn { position: absolute; right: 10px; top: 10px; cursor: pointer; color: #ccc; font-size: 12px; }
+        /* ログイン前は隠すための設定 */
+        #mainContent { display: none; }
     </style>
 </head>
 <body>
 
 <div class="container">
     <h2>🐾 ねこメモ共有リスト</h2>
-    <textarea id="memoArea" placeholder="ここにメモを書いてニャ..."></textarea>
-    <button id="saveBtn">保存するニャ！</button>
-    <div class="memo-list" id="memoList"></div>
+    
+    <button id="loginBtn">Googleでログインするニャ！</button>
+
+    <div id="mainContent">
+        <textarea id="memoArea" placeholder="ここにメモを書いてニャ..."></textarea>
+        <button id="saveBtn">保存するニャ！</button>
+        <div class="memo-list" id="memoList"></div>
+    </div>
 </div>
 
 <script type="module">
+    // 1. Authentication(auth)機能をインポートに追加
     import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
     import { getDatabase, ref, push, onValue, remove, serverTimestamp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-database.js";
+    import { getAuth, signInWithPopup, GoogleAuthProvider, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
 
     const firebaseConfig = {
         apiKey: "AIzaSyAOlqtNEaxEZ5PhX6p7yPJhv-EeIJxzk1Q",
@@ -41,47 +52,63 @@
 
     const app = initializeApp(firebaseConfig);
     const db = getDatabase(app);
+    const auth = getAuth(app); // 認証機能の初期化
+    const provider = new GoogleAuthProvider();
+    
     const listRef = ref(db, 'memo-list');
 
     const memoArea = document.getElementById('memoArea');
     const saveBtn = document.getElementById('saveBtn');
     const memoList = document.getElementById('memoList');
+    const loginBtn = document.getElementById('loginBtn');
+    const mainContent = document.getElementById('mainContent');
 
-    // --- ブラウザの機能で「ピコーン」と音を作る関数 ---
+    // --- ログイン処理 ---
+    loginBtn.addEventListener('click', () => {
+        signInWithPopup(auth, provider).catch(err => alert("失敗したニャ: " + err.message));
+    });
+
+    // --- ログイン状態を監視する（重要！） ---
+    onAuthStateChanged(auth, (user) => {
+        if (user) {
+            // ログイン成功時：ボタンを隠して中身を表示
+            loginBtn.style.display = 'none';
+            mainContent.style.display = 'block';
+            loadMemos(); // メモの読み込み開始
+        } else {
+            // 未ログイン時
+            loginBtn.style.display = 'block';
+            mainContent.style.display = 'none';
+        }
+    });
+
+    // --- 音を鳴らす関数 ---
     const playSystemSound = (type) => {
         const ctx = new (window.AudioContext || window.webkitAudioContext)();
         const osc = ctx.createOscillator();
         const gain = ctx.createGain();
-
         osc.connect(gain);
         gain.connect(ctx.destination);
-
         if (type === 'save') {
-            // 保存：高い音で「ピコーン」
             osc.type = 'sine';
             osc.frequency.setValueAtTime(880, ctx.currentTime);
             osc.frequency.exponentialRampToValueAtTime(440, ctx.currentTime + 0.2);
         } else {
-            // 削除：低い音で「ブー」
             osc.type = 'sawtooth';
             osc.frequency.setValueAtTime(220, ctx.currentTime);
             osc.frequency.exponentialRampToValueAtTime(110, ctx.currentTime + 0.3);
         }
-
         gain.gain.setValueAtTime(0.1, ctx.currentTime);
         gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.3);
-
         osc.start();
         osc.stop(ctx.currentTime + 0.3);
     };
 
-    // 保存ボタン
+    // 保存ボタンのイベント
     saveBtn.addEventListener('click', () => {
         const text = memoArea.value.trim();
         if (text === "") return;
-
-        playSystemSound('save'); // 音を鳴らす
-
+        playSystemSound('save');
         push(listRef, {
             text: text,
             timestamp: serverTimestamp()
@@ -89,30 +116,32 @@
         memoArea.value = ""; 
     });
 
-    // 読み込み表示
-    onValue(listRef, (snapshot) => {
-        memoList.innerHTML = "";
-        const data = snapshot.val();
-        if (data) {
-            Object.keys(data).reverse().forEach(key => {
-                const memo = data[key];
-                const date = memo.timestamp ? new Date(memo.timestamp).toLocaleString() : "";
-                const div = document.createElement('div');
-                div.className = 'memo-item';
-                div.innerHTML = `
-                    <div class="memo-date">${date}</div>
-                    <div>${memo.text}</div>
-                    <span class="delete-btn" onclick="deleteMemo('${key}')">✖ 削除</span>
-                `;
-                memoList.appendChild(div);
-            });
-        }
-    });
+    // メモを読み込む関数
+    function loadMemos() {
+        onValue(listRef, (snapshot) => {
+            memoList.innerHTML = "";
+            const data = snapshot.val();
+            if (data) {
+                Object.keys(data).reverse().forEach(key => {
+                    const memo = data[key];
+                    const date = memo.timestamp ? new Date(memo.timestamp).toLocaleString() : "";
+                    const div = document.createElement('div');
+                    div.className = 'memo-item';
+                    div.innerHTML = `
+                        <div class="memo-date">${date}</div>
+                        <div>${memo.text}</div>
+                        <span class="delete-btn" onclick="deleteMemo('${key}')">✖ 削除</span>
+                    `;
+                    memoList.appendChild(div);
+                });
+            }
+        });
+    }
 
-    // 削除機能
+    // 削除機能（グローバルに公開）
     window.deleteMemo = (key) => {
         if (confirm("このメモを削除するニャ？")) {
-            playSystemSound('delete'); // 音を鳴らす
+            playSystemSound('delete');
             remove(ref(db, `memo-list/${key}`));
         }
     };
