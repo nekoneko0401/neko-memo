@@ -9,15 +9,26 @@
         .container { max-width: 500px; margin: 0 auto; background: white; padding: 20px; border-radius: 15px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); }
         h2 { color: #ff8c00; text-align: center; border-bottom: 2px dashed #ff8c00; padding-bottom: 10px; }
         textarea { width: 100%; height: 100px; border: 2px solid #ddd; border-radius: 10px; padding: 10px; box-sizing: border-box; font-size: 16px; }
-        button { width: 100%; background: #ff8c00; color: white; border: none; padding: 12px; border-radius: 10px; font-size: 18px; cursor: pointer; margin: 10px 0; }
-        button:active { background: #e67e00; }
-        /* ログインボタン専用スタイル */
-        #loginBtn { background: #4285F4; margin-bottom: 20px; } 
+        
+        /* ボタンの共通スタイル */
+        button { width: 100%; border: none; padding: 12px; border-radius: 10px; font-size: 18px; cursor: pointer; margin: 10px 0; color: white; }
+        
+        /* ログインボタン（青） */
+        #loginBtn { background: #4285F4; }
+        
+        /* 保存ボタン（オレンジ） */
+        #saveBtn { background: #ff8c00; }
+        #saveBtn:active { background: #e67e00; }
+        
+        /* ログアウトボタン（グレー） */
+        #logoutBtn { background: #999; font-size: 14px; margin-top: 20px; }
+
         .memo-list { margin-top: 20px; }
         .memo-item { background: #fff; border-left: 5px solid #ff8c00; padding: 10px; margin-bottom: 10px; border-radius: 5px; box-shadow: 0 2px 4px rgba(0,0,0,0.05); position: relative; }
         .memo-date { font-size: 10px; color: #999; }
         .delete-btn { position: absolute; right: 10px; top: 10px; cursor: pointer; color: #ccc; font-size: 12px; }
-        /* ログイン前は隠すための設定 */
+        
+        /* ログイン前はメインコンテンツを隠す */
         #mainContent { display: none; }
     </style>
 </head>
@@ -32,15 +43,18 @@
         <textarea id="memoArea" placeholder="ここにメモを書いてニャ..."></textarea>
         <button id="saveBtn">保存するニャ！</button>
         <div class="memo-list" id="memoList"></div>
+        
+        <button id="logoutBtn">ログアウトするニャ</button>
     </div>
 </div>
 
 <script type="module">
-    // 1. Authentication(auth)機能をインポートに追加
+    // Firebase機能の読み込み
     import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
     import { getDatabase, ref, push, onValue, remove, serverTimestamp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-database.js";
-    import { getAuth, signInWithPopup, GoogleAuthProvider, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
+    import { getAuth, signInWithPopup, GoogleAuthProvider, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
 
+    // Firebaseの設定
     const firebaseConfig = {
         apiKey: "AIzaSyAOlqtNEaxEZ5PhX6p7yPJhv-EeIJxzk1Q",
         authDomain: "neko-memo.firebaseapp.com",
@@ -50,33 +64,45 @@
         appId: "1:267727124933:web:74c8e7a4f968b7822f73ac"
     };
 
+    // 初期化
     const app = initializeApp(firebaseConfig);
     const db = getDatabase(app);
-    const auth = getAuth(app); // 認証機能の初期化
+    const auth = getAuth(app);
     const provider = new GoogleAuthProvider();
-    
     const listRef = ref(db, 'memo-list');
 
+    // 要素の取得
     const memoArea = document.getElementById('memoArea');
     const saveBtn = document.getElementById('saveBtn');
     const memoList = document.getElementById('memoList');
     const loginBtn = document.getElementById('loginBtn');
+    const logoutBtn = document.getElementById('logoutBtn');
     const mainContent = document.getElementById('mainContent');
 
-    // --- ログイン処理 ---
+    // --- 【ログイン機能】 ---
     loginBtn.addEventListener('click', () => {
         signInWithPopup(auth, provider).catch(err => alert("失敗したニャ: " + err.message));
     });
 
-    // --- ログイン状態を監視する（重要！） ---
+    // --- 【ログアウト機能】 ---
+    logoutBtn.addEventListener('click', () => {
+        if(confirm("ログアウトするニャ？")) {
+            signOut(auth).then(() => {
+                alert("ログアウトしました");
+                location.reload(); // 画面を再読み込み
+            });
+        }
+    });
+
+    // --- 【ログイン状態の監視】 ---
     onAuthStateChanged(auth, (user) => {
         if (user) {
-            // ログイン成功時：ボタンを隠して中身を表示
+            // ログイン中：ボタンを隠して中身を出す
             loginBtn.style.display = 'none';
             mainContent.style.display = 'block';
-            loadMemos(); // メモの読み込み開始
+            loadMemos(); // データの読み込み
         } else {
-            // 未ログイン時
+            // 未ログイン：中身を隠してボタンを出す
             loginBtn.style.display = 'block';
             mainContent.style.display = 'none';
         }
@@ -104,7 +130,7 @@
         osc.stop(ctx.currentTime + 0.3);
     };
 
-    // 保存ボタンのイベント
+    // --- 保存処理 ---
     saveBtn.addEventListener('click', () => {
         const text = memoArea.value.trim();
         if (text === "") return;
@@ -116,7 +142,7 @@
         memoArea.value = ""; 
     });
 
-    // メモを読み込む関数
+    // --- 読み込み表示 ---
     function loadMemos() {
         onValue(listRef, (snapshot) => {
             memoList.innerHTML = "";
@@ -138,7 +164,7 @@
         });
     }
 
-    // 削除機能（グローバルに公開）
+    // --- 削除機能 ---
     window.deleteMemo = (key) => {
         if (confirm("このメモを削除するニャ？")) {
             playSystemSound('delete');
